@@ -1,8 +1,10 @@
-from .models import Transaction
-from dataclasses import asdict
 import json
+from collections.abc import Iterator
+from dataclasses import asdict
 
-def iter_transactions(path):
+from .models import Transaction
+
+def iter_transactions(path: str) -> Iterator[Transaction]:
     with open(path, encoding="utf-8") as f:
         for line in f:
             if line.strip() == "":
@@ -11,7 +13,7 @@ def iter_transactions(path):
             tx = Transaction(**data)
             yield tx
 
-def append_transaction(path, tx):
+def append_transaction(path: str, tx: Transaction) -> None:
     with open(path, "a", encoding="utf-8") as f:
         data = asdict(tx)
         line = json.dumps(data, ensure_ascii=False)
