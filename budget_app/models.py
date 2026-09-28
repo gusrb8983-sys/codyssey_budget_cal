@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 @dataclass
 class Transaction:
     id: str
@@ -8,4 +7,4 @@ class Transaction:
     amount: int
     category: str
     memo: str | None = None
-    tags: list[str] = []
+    tags: list[str] | None = None
