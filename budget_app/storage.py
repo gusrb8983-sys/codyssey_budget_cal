@@ -21,6 +21,7 @@ class TransactionRepository:
                 yield tx
 
     def append(self, tx: Transaction) -> None:
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "a", encoding="utf-8") as f:
             data = asdict(tx)
             line = json.dumps(data, ensure_ascii=False)
@@ -43,6 +44,7 @@ class CategoryStore:
             return names
 
     def add(self, name: str) -> None:
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "a", encoding="utf-8") as f:
             data = {"name": name}
             line = json.dumps(data, ensure_ascii=False)
@@ -65,6 +67,7 @@ class BudgetStore:
             return budgets
 
     def set(self, month: str, amount: int) -> None:
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with open(self.path, "a", encoding="utf-8") as f:
             data = {"month":month, "amount": amount}
             line = json.dumps(data, ensure_ascii=False)
