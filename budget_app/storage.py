@@ -42,3 +42,27 @@ class CategoryStore:
             data = {"name": name}
             line = json.dumps(data, ensure_ascii=False)
             f.write(line + "\n")
+
+class BudgetStore:
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def load_all(self) -> dict[str, int]:
+        budgets = {}
+        with open(self.path, encoding="utf-8") as f:
+            for line in f:
+                if line.strip() == "":
+                    continue
+                data = json.loads(line)
+                budgets[data["month"]] = data["amount"]
+            return budgets
+
+    def set(self, month: str, amount: int) -> None:
+        with open(self.path, "a", encoding="utf-8") as f:
+            data = {"month":month, "amount": amount}
+            line = json.dumps(data, ensure_ascii=False)
+            f.write(line + "\n")
+
+    def get(self, month: str) -> int | None:
+        budgets = self.load_all()
+        return budgets.get(month)
