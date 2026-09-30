@@ -1,3 +1,0 @@
-{"id": "TX-000001", "type": "expense", "date": "2024-01-14", "amount": 8000, "category": "food", "memo": "김밥", "tags": ["meal"]}
-{"id": "TX-000002", "type": "income", "date": "2024-01-15", "amount": 50000, "category": "allowance", "memo": null, "tags": null}
-{"id": "TX-000003", "type": "expense", "date": "2024-01-16", "amount": 3000, "category": "transport", "memo": "버스, 지하철", "tags": ["commute"]}
