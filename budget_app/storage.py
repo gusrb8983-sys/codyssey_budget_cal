@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterator
 from dataclasses import asdict
+from pathlib import Path
 
 from .models import Transaction
 
@@ -8,7 +9,9 @@ class TransactionRepository:
     def __init__(self, path: str) -> None:
         self.path = path
 
-    def iter_all(self: str) -> Iterator[Transaction]:
+    def iter_all(self) -> Iterator[Transaction]:
+        if not Path(self.path).exists():
+            return
         with open(self.path, encoding="utf-8") as f:
             for line in f:
                 if line.strip() == "":
@@ -29,6 +32,8 @@ class CategoryStore:
 
     def list_all(self) -> list[str]:
         names = []
+        if not Path(self.path).exists():
+            return names
         with open(self.path, encoding="utf-8") as f:
             for line in f:
                 if line.strip() == "":
@@ -49,6 +54,8 @@ class BudgetStore:
 
     def load_all(self) -> dict[str, int]:
         budgets = {}
+        if not Path(self.path).exists():
+            return budgets
         with open(self.path, encoding="utf-8") as f:
             for line in f:
                 if line.strip() == "":
