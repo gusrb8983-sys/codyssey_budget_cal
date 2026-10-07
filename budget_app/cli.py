@@ -1,7 +1,7 @@
 import argparse
 
 from .storage import CategoryStore
-
+from .services import add_category
 
 def main() -> None:
     # 1부: 은행 세우기
@@ -24,7 +24,10 @@ def main() -> None:
             for name in names:
                 print(f"- {name}")
         elif args.action == "add":
-            name = input("카테고리명: ")
             store = CategoryStore("data/categories.jsonl")
-            store.add(name)
-            print(f"[저장 완료] category={name}")
+            try:
+                raw_name = input("카테고리명: ")
+                name = add_category(store, raw_name)
+                print(f"[저장 완료] category = {name}")
+            except ValueError as e:
+                print(f"[오류] {e}")
