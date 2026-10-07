@@ -11,6 +11,7 @@ def main() -> None:
     category = sub.add_parser("category", help="카테고리 관리")
     category_sub = category.add_subparsers(dest="action", required=True)
     category_sub.add_parser("list", help="카테고리 목록 보기")
+    category_sub.add_parser("add", help="카테고리 추가")
 
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -22,3 +23,8 @@ def main() -> None:
             names = store.list_all()
             for name in names:
                 print(f"- {name}")
+        elif args.action == "add":
+            name = input("카테고리명: ")
+            store = CategoryStore("data/categories.jsonl")
+            store.add(name)
+            print(f"[저장 완료] category={name}")
