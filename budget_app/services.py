@@ -42,3 +42,25 @@ def parse_category(store: CategoryStore, raw: str) -> str:
     if category not in categories:
         raise ValueError("카테고리 목록에 등록되어 있지 않습니다. category add로 먼저 등록해주세요.")
     return category
+
+def parse_memo(raw: str) -> str | None:
+    memo = raw.strip()
+    if memo == "":
+        return None
+    else:
+        return memo
+
+def parse_tags(raw: str) -> list[str] | None:
+    raw_tags = raw.strip()
+    if raw_tags == "":
+        return None
+    tags = raw_tags.split(",")
+    tag_list = []
+    for tag in tags:
+        new_tag = tag.strip()
+        if not new_tag == "":
+            tag_list.append(new_tag)
+    if tag_list == []:
+        return None
+    else:
+        return tag_list
