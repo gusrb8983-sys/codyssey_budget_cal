@@ -1,5 +1,5 @@
 from .storage import CategoryStore
-
+from datetime import datetime
 
 def add_category(store: CategoryStore, name: str) -> str:
     name = name.strip()
@@ -27,3 +27,18 @@ def parse_amount(raw: str) -> int:
     if amount <= 0:
         raise ValueError("금액은 1 이상의 정수여야 합니다. (예: 150000)") # 4. 0 이하면 → raise ValueError("...")
     return amount # 5. 숫자 돌려주기
+
+def parse_date(raw: str) -> str:
+    raw_date = raw.strip()
+    try:
+        datetime.strptime(raw_date, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError("날짜 형식을 올바르게 설정해주세요. (예: 2024-10-03)") from None
+    return raw_date
+
+def parse_category(store: CategoryStore, raw: str) -> str:
+    category = raw.strip()
+    categories = store.list_all()
+    if category not in categories:
+        raise ValueError("카테고리 목록에 등록되어 있지 않습니다. category add로 먼저 등록해주세요.")
+    return category
