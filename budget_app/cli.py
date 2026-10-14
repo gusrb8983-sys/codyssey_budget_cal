@@ -1,13 +1,24 @@
 import argparse
 
-from .storage import CategoryStore
-from .services import add_category
+from .models import Transaction
+from .storage import CategoryStore, TransactionRepository
+from .services import (
+    add_category, parse_amount, parse_category,
+    parse_date, parse_memo, parse_tags, parse_type,
+)
+def ask(prompt: str, parse) -> ...:
+    while True:
+        raw = input(prompt)
+        try:
+            return parse(raw)
+        except ValueError as e:
+            print(f"[오류] {e}")
 
 def main() -> None:
     # 1부: 은행 세우기
     parser = argparse.ArgumentParser(prog="budget_app", description="용돈 기입장")
     sub = parser.add_subparsers(dest="command", required=True)
-
+    sub.add_parser("add", help="거래 추가")
     category = sub.add_parser("category", help="카테고리 관리")
     category_sub = category.add_subparsers(dest="action", required=True)
     category_sub.add_parser("list", help="카테고리 목록 보기")
@@ -31,3 +42,15 @@ def main() -> None:
                 print(f"[저장 완료] category = {name}")
             except ValueError as e:
                 print(f"[오류] {e}")
+    elif args.command == "add":
+        category_store = CategoryStore("data/categories.jsonl")
+        repo = TransactionRepository("data/transactions.jsonl")
+        tx_date = ask("날짜(YYYY-MM-DD): ", parse_date)
+        tx_type = ask("타입(income/expense): ", parse_type)
+        tx_category = ask("카테고리: ", lambda raw: parse_category(category_store, raw))
+        tx_amount = ask("금액(양수): ", parse_amount)
+        tx_memo = ask("메모(선택): ", parse_memo)
+        tx_tags = ask("태그(쉼표로 구분, 없으면 엔터): ", parse_tags)
+        transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date, amount=tx_amount, category=tx_category, memo=tx_memo, tags=tx_tags)
+        repo.append(transaction)
+        print(f"[저장 완료] id={transaction.id}")
