@@ -5,7 +5,7 @@ from .storage import CategoryStore, TransactionRepository, BudgetStore
 from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
-    recent_transactions,
+    recent_transactions, top_categories
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -95,6 +95,7 @@ def main() -> None:
         try:
             month = parse_month(args.month)
             total_income, total_expense, category_totals = monthly_totals(repo, month)
+            top_items = top_categories(category_totals, args.top)
             budget = budget_store.get(month)
             if total_income == 0 and total_expense == 0:
                 print("데이터 없음")
@@ -107,6 +108,11 @@ def main() -> None:
                 else:
                     usage = total_expense / budget * 100
                     print(f"예산: {budget}원 (사용률 {usage:.1f}%)")
-        
+                    if total_expense > budget:
+                        print(f"예산보다 많은 금액을 소비하셨습니다. 초과 금액: {total_expense - budget}")
+                print(f"지출 TOP {args.top}")
+                for rank, (name, amount) in enumerate(top_items, start = 1):
+                    print(f"{rank}) {name} {amount}원")
+
         except ValueError as e:
             print(f"[오류] {e}")

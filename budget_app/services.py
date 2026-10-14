@@ -99,3 +99,9 @@ def monthly_totals(repo: TransactionRepository, month: str) -> tuple[int, int, d
                 total_expense = total_expense + tx.amount
                 category_totals[tx.category] = category_totals.get(tx.category, 0) + tx.amount   #    - 위의 분기대로 더하기 
     return total_income, total_expense, category_totals # 3. return total_income, total_expense, category_totals
+
+def top_categories(category_totals: dict[str, int], top: int) -> list[tuple[str, int]]:
+    if top < 1:
+        raise ValueError("--top은 1 이상의 정수여야 합니다 (예: --top 3)")
+    else:
+        return sorted(category_totals.items(), key=lambda pair: pair[1], reverse=True)[:top]
