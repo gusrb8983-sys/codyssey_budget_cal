@@ -1,5 +1,8 @@
 from .storage import CategoryStore
 from datetime import datetime
+from collections import deque
+from .storage import TransactionRepository
+from .models import Transaction
 
 def add_category(store: CategoryStore, name: str) -> str:
     name = name.strip()
@@ -7,7 +10,7 @@ def add_category(store: CategoryStore, name: str) -> str:
     if name == "":
         raise ValueError("이름이 비어있습니다. 다시 입력해주세요.")
     elif name in names:
-        raise ValueError("이미 등록된 카테고리입니다: {name}")
+        raise ValueError(f"이미 등록된 카테고리입니다: {name}")
     else:
         store.add(name)
     return name
@@ -64,3 +67,12 @@ def parse_tags(raw: str) -> list[str] | None:
         return None
     else:
         return tag_list
+
+def recent_transactions(repo: TransactionRepository, limit: int) -> list[Transaction]:
+    if limit < 1:
+        raise ValueError("--limit은 1 이상의 정수여야 합니다(예: --limit 5)")
+    else:
+        box = deque(maxlen=limit)                  # 1. deque(maxlen=limit) 바구니 준비
+        for tx in repo.iter_all():
+            box.append(tx)                         # 2. repo.iter_all()를 for로 돌면서 바구니에 append
+        return list(reversed(box))                 # 3. 바구니를 뒤집어서 리스트로 돌려주기 

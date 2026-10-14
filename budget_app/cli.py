@@ -5,7 +5,9 @@ from .storage import CategoryStore, TransactionRepository
 from .services import (
     add_category, parse_amount, parse_category,
     parse_date, parse_memo, parse_tags, parse_type,
+    recent_transactions,
 )
+
 def ask(prompt: str, parse) -> ...:
     while True:
         raw = input(prompt)
@@ -23,6 +25,8 @@ def main() -> None:
     category_sub = category.add_subparsers(dest="action", required=True)
     category_sub.add_parser("list", help="카테고리 목록 보기")
     category_sub.add_parser("add", help="카테고리 추가")
+    list_parser = sub.add_parser("list", help="거래 목록")
+    list_parser.add_argument("--limit", type=int, default=10, help="보여줄 개수")
 
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -42,6 +46,7 @@ def main() -> None:
                 print(f"[저장 완료] category = {name}")
             except ValueError as e:
                 print(f"[오류] {e}")
+
     elif args.command == "add":
         category_store = CategoryStore("data/categories.jsonl")
         repo = TransactionRepository("data/transactions.jsonl")
@@ -54,3 +59,11 @@ def main() -> None:
         transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date, amount=tx_amount, category=tx_category, memo=tx_memo, tags=tx_tags)
         repo.append(transaction)
         print(f"[저장 완료] id={transaction.id}")
+
+    elif args.command == "list":
+        repo = TransactionRepository("data/transactions.jsonl")
+        try:
+            for recent_tx in recent_transactions(repo, args.limit):
+                print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
+        except ValueError as e:
+            print(f"[오류] {e}")
