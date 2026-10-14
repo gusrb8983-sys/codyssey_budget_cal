@@ -3,9 +3,9 @@ import argparse
 from .models import Transaction
 from .storage import CategoryStore, TransactionRepository, BudgetStore
 from .services import (
-    add_category, parse_amount, parse_category,
-    parse_date, parse_memo, parse_month, parse_tags,
-    parse_type, recent_transactions,
+    add_category, parse_amount, monthly_totals, parse_category,
+    parse_date, parse_memo, parse_month, parse_tags, parse_type,
+    recent_transactions,
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -32,7 +32,9 @@ def main() -> None:
     set_parser = budget_sub.add_parser("set", help="예산 설정")
     set_parser.add_argument("--month", required=True, help="예산 월 (YYYY-MM)")
     set_parser.add_argument("--amount", required=True, help="월 예산 금액 (양수 정수)")
-
+    summary_parser = sub.add_parser("summary", help="월별 요약")
+    summary_parser.add_argument("--month", required=True, help="요약할 월 (YYYY-MM)")
+    summary_parser.add_argument("--top", type=int, default=3, help="지출 TOP N")
 
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -86,3 +88,25 @@ def main() -> None:
                 print(f"[저장 완료] {month} 예산 {amount}원")
             except ValueError as e:
                 print(f"[오류] {e}")
+
+    elif args.command == "summary":
+        repo = TransactionRepository("data/transactions.jsonl")
+        budget_store = BudgetStore("data/budgets.jsonl")
+        try:
+            month = parse_month(args.month)
+            total_income, total_expense, category_totals = monthly_totals(repo, month)
+            budget = budget_store.get(month)
+            if total_income == 0 and total_expense == 0:
+                print("데이터 없음")
+            else:
+                print(f"총 수입: {total_income}원")
+                print(f"총 지출: {total_expense}원")
+                print(f"잔액: {total_income - total_expense}원")
+                if budget is None:
+                    print("예산: 미설정")
+                else:
+                    usage = total_expense / budget * 100
+                    print(f"예산: {budget}원 (사용률 {usage:.1f}%)")
+        
+        except ValueError as e:
+            print(f"[오류] {e}")

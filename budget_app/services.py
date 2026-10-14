@@ -84,3 +84,18 @@ def recent_transactions(repo: TransactionRepository, limit: int) -> list[Transac
         for tx in repo.iter_all():
             box.append(tx)                         # 2. repo.iter_all()를 for로 돌면서 바구니에 append
         return list(reversed(box))                 # 3. 바구니를 뒤집어서 리스트로 돌려주기 
+
+def monthly_totals(repo: TransactionRepository, month: str) -> tuple[int, int, dict[str, int]]:
+    total_income = 0
+    total_expense = 0
+    category_totals = {} # 1. 바구니 세 개 준비 (total_income = 0, total_expense = 0, category_totals = {})
+    for tx in repo.iter_all(): # 2. repo.iter_all()를 for로 돌면서
+        if not tx.date.startswith(month):
+            continue        #    - 이 거래가 해당 월이 아니면 continue
+        else:                   
+            if tx.type == "income":
+                total_income = total_income + tx.amount
+            else:
+                total_expense = total_expense + tx.amount
+                category_totals[tx.category] = category_totals.get(tx.category, 0) + tx.amount   #    - 위의 분기대로 더하기 
+    return total_income, total_expense, category_totals # 3. return total_income, total_expense, category_totals
