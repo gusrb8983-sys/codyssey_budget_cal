@@ -27,6 +27,14 @@ class TransactionRepository:
             line = json.dumps(data, ensure_ascii=False)
             f.write(line + "\n")
 
+    def next_id(self) -> str:
+        bignum = 0                          # 1. 가장 큰 번호를 담을 변수를 0으로 준비
+        for tx in self.iter_all():
+            id_order = int(tx.id.split("-")[1])    # - tx.id에서 번호 부분을 꺼내 숫자로 바꾸기 (아까 부품 사용)
+            if id_order > bignum:
+                bignum = id_order               # - 지금까지의 최댓값보다 크면 최댓값 갱신
+        return f"TX-{(bignum + 1):06d}"     # 3. 최댓값 + 1을 TX-000000 모양 글자로 만들어 돌려주기
+    
 class CategoryStore:
     def __init__(self, path: str) -> None:
         self.path = path
