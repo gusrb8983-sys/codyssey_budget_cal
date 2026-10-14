@@ -31,6 +31,14 @@ def parse_amount(raw: str) -> int:
         raise ValueError("금액은 1 이상의 정수여야 합니다. (예: 150000)") # 4. 0 이하면 → raise ValueError("...")
     return amount # 5. 숫자 돌려주기
 
+def parse_month(raw: str) -> str:
+    raw_month = raw.strip()
+    try:
+        datetime.strptime(raw_month, "%Y-%m")
+    except ValueError:
+        raise ValueError("날짜 형식을 올바르게 설정해주세요. (예: 2024-10)") from None
+    return raw_month
+
 def parse_date(raw: str) -> str:
     raw_date = raw.strip()
     try:

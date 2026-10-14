@@ -1,11 +1,11 @@
 import argparse
 
 from .models import Transaction
-from .storage import CategoryStore, TransactionRepository
+from .storage import CategoryStore, TransactionRepository, BudgetStore
 from .services import (
     add_category, parse_amount, parse_category,
-    parse_date, parse_memo, parse_tags, parse_type,
-    recent_transactions,
+    parse_date, parse_memo, parse_month, parse_tags,
+    parse_type, recent_transactions,
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -27,6 +27,12 @@ def main() -> None:
     category_sub.add_parser("add", help="카테고리 추가")
     list_parser = sub.add_parser("list", help="거래 목록")
     list_parser.add_argument("--limit", type=int, default=10, help="보여줄 개수")
+    budget = sub.add_parser("budget", help="예산 목록")
+    budget_sub = budget.add_subparsers(dest="action", required=True)
+    set_parser = budget_sub.add_parser("set", help="예산 설정")
+    set_parser.add_argument("--month", required=True, help="예산 월 (YYYY-MM)")
+    set_parser.add_argument("--amount", required=True, help="월 예산 금액 (양수 정수)")
+
 
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -63,7 +69,20 @@ def main() -> None:
     elif args.command == "list":
         repo = TransactionRepository("data/transactions.jsonl")
         try:
-            for recent_tx in recent_transactions(repo, args.limit):
-                print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
+            recent = recent_transactions(repo, args.limit)
         except ValueError as e:
             print(f"[오류] {e}")
+        else:
+            for recent_tx in recent:
+                print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
+
+    elif args.command == "budget":
+        if args.action == "set":
+            store = BudgetStore("data/budgets.jsonl")
+            try:
+                month = parse_month(args.month)
+                amount = parse_amount(args.amount)
+                store.set(month, amount)
+                print(f"[저장 완료] {month} 예산 {amount}원")
+            except ValueError as e:
+                print(f"[오류] {e}")
