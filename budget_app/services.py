@@ -1,3 +1,4 @@
+import csv
 from collections.abc import Iterator
 from .storage import CategoryStore
 from datetime import datetime
@@ -173,3 +174,20 @@ def update_transaction(repo, category_store, raw_id, date=None, tx_type=None,
     if not repo.update(tx_id, changes):
         raise ValueError("존재하지 않는 id입니다.")
     return tx_id
+
+def export_transactions(repo, out_path, month=None, date_from=None, date_to=None) -> int:
+    if month is None and date_from is None and date_to is None:
+        raise ValueError("--month 또는 --from/--to 중 하나는 필요합니다") # 1. month, date_from, date_to가 전부 None이면 → raise ValueError("--month 또는 --from/--to 중 하나는 필요합니다")
+    if month:
+        tx_month = parse_month(month)
+        date_from = f"{tx_month}-01"
+        date_to = f"{tx_month}-99" 
+    rows = search_transactions(repo, date_from=date_from, date_to=date_to)
+    with open(out_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["date", "type", "category", "amount", "memo", "tags"])
+        count = 0                      # for보다 위, 딱 한 번 (with 안쪽 맨 앞 또는 with 위)
+        for tx in rows:                # 매번
+            writer.writerow([tx.date, tx.type, tx.category, tx.amount, tx.memo or "", ",".join(tx.tags) if tx.tags else ""])
+            count = count + 1          # 매번
+    return count                       # 반복이 끝난 뒤 한 번 (with 바깥)
