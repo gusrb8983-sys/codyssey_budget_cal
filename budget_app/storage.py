@@ -56,7 +56,30 @@ class TransactionRepository:
         else:
             tmp_path.unlink()
         return found
-    
+
+    def update(self, target_id: str, changes: dict) -> bool:
+        path = Path(self.path)
+        if not path.exists():
+            return False
+        tmp_path = path.with_suffix(".jsonl.tmp")
+        found = False
+        with open(path, encoding="utf-8") as src, open(tmp_path, "w", encoding="utf-8") as dst:
+            for line in src:
+                if line.strip() == '':
+                    continue
+                data = json.loads(line)
+                if data["id"] == target_id:
+                    data.update(changes)
+                    dst.write(json.dumps(data, ensure_ascii=False) + "\n")
+                    found = True
+                else:
+                    dst.write(line)
+        if found:
+            tmp_path.replace(path)
+        else:
+            tmp_path.unlink()
+        return found
+
 class CategoryStore:
     def __init__(self, path: str) -> None:
         self.path = path
