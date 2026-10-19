@@ -6,7 +6,7 @@ from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
     recent_transactions, top_categories, search_transactions,
-    remove_category, delete_transaction
+    remove_category, delete_transaction, update_transaction
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -46,6 +46,15 @@ def main() -> None:
     search_parser.add_argument("--type", dest="tx_type", help="income 또는 expense")
     search_parser.add_argument("--q", dest="keyword", help="메모 검색어")
     search_parser.add_argument("--tag", help="태그")
+    update_parser = sub.add_parser("update", help="거래 수정")
+    update_parser.add_argument("--id", dest="tx_id", required=True, help="수정할 거래 id")
+    update_parser.add_argument("--date", help="날짜 (YYYY-MM-DD)")
+    update_parser.add_argument("--type", dest="tx_type", help="income 또는 expense")
+    update_parser.add_argument("--category", help="카테고리")
+    update_parser.add_argument("--amount", help="금액 (양수 정수)")
+    update_parser.add_argument("--memo", help="메모")
+    update_parser.add_argument("--tags", help="태그 (쉼표로 구분)")
+
     
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -156,4 +165,15 @@ def main() -> None:
             print(f"[삭제 완료] id={tx_id}")
         except ValueError as e:
             print(f"[오류] {e}")
-    
+
+    elif args.command == "update":
+        repo = TransactionRepository("data/transactions.jsonl")
+        category_store = CategoryStore("data/categories.jsonl")
+        try:
+            tx_id = update_transaction(repo, category_store, args.tx_id,
+                                       date=args.date, tx_type=args.tx_type,
+                                       category=args.category, amount=args.amount,
+                                       memo=args.memo, tags=args.tags)
+            print(f"[수정 완료] id={tx_id}")
+        except ValueError as e:
+            print(f"[오류] {e}")
