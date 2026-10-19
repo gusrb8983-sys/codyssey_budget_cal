@@ -5,7 +5,7 @@ from .storage import CategoryStore, TransactionRepository, BudgetStore
 from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
-    recent_transactions, top_categories
+    recent_transactions, top_categories, search_transactions
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -35,7 +35,14 @@ def main() -> None:
     summary_parser = sub.add_parser("summary", help="월별 요약")
     summary_parser.add_argument("--month", required=True, help="요약할 월 (YYYY-MM)")
     summary_parser.add_argument("--top", type=int, default=3, help="지출 TOP N")
-
+    search_parser = sub.add_parser("search", help="거래 검색")
+    search_parser.add_argument("--from", dest="date_from", help="시작 날짜 (YYYY-MM-DD)")
+    search_parser.add_argument("--to", dest="date_to", help="종료 날짜 (YYYY-MM-DD)")
+    search_parser.add_argument("--category", help="카테고리")
+    search_parser.add_argument("--type", dest="tx_type", help="income 또는 expense")
+    search_parser.add_argument("--q", dest="keyword", help="메모 검색어")
+    search_parser.add_argument("--tag", help="태그")
+    
     # 2부: 손님 받기
     args = parser.parse_args()
 
@@ -116,3 +123,15 @@ def main() -> None:
 
         except ValueError as e:
             print(f"[오류] {e}")
+
+    elif args.command == "search":
+        repo = TransactionRepository("data/transactions.jsonl")
+        results = list(search_transactions(repo, category=args.category,
+        tx_type=args.tx_type, date_from=args.date_from,
+        date_to=args.date_to, keyword=args.keyword, tag=args.tag,
+        ))
+        if not results:
+            print("검색 결과 없음")
+        else:
+            for tx in reversed(results):
+                print(f"{tx.id} | {tx.date} | {tx.type} | {tx.category} | {tx.amount} | {tx.memo or ''}")
