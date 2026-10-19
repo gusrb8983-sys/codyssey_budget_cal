@@ -6,7 +6,7 @@ from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
     recent_transactions, top_categories, search_transactions,
-    remove_category, 
+    remove_category, delete_transaction
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -27,6 +27,8 @@ def main() -> None:
     category_sub.add_parser("list", help="카테고리 목록 보기")
     category_sub.add_parser("add", help="카테고리 추가")
     category_sub.add_parser("remove", help="카테고리 삭제")
+    delete_parser = sub.add_parser("delete", help="거래 삭제")
+    delete_parser.add_argument("--id", dest="tx_id", required=True, help="삭제할 거래 id")
     list_parser = sub.add_parser("list", help="거래 목록")
     list_parser.add_argument("--limit", type=int, default=10, help="보여줄 개수")
     budget = sub.add_parser("budget", help="예산 목록")
@@ -147,3 +149,11 @@ def main() -> None:
             for tx in reversed(results):
                 print(f"{tx.id} | {tx.date} | {tx.type} | {tx.category} | {tx.amount} | {tx.memo or ''}")
 
+    elif args.command == "delete":
+        repo = TransactionRepository("data/transactions.jsonl")
+        try:
+            tx_id = delete_transaction(repo, args.tx_id)
+            print(f"[삭제 완료] id={tx_id}")
+        except ValueError as e:
+            print(f"[오류] {e}")
+    

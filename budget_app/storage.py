@@ -34,6 +34,28 @@ class TransactionRepository:
             if id_order > bignum:
                 bignum = id_order               # - 지금까지의 최댓값보다 크면 최댓값 갱신
         return f"TX-{(bignum + 1):06d}"     # 3. 최댓값 + 1을 TX-000000 모양 글자로 만들어 돌려주기
+
+    def delete(self, target_id: str) -> bool:
+        path = Path(self.path)
+        if not path.exists():
+            return False
+        tmp_path = path.with_suffix(".jsonl.tmp")
+        found = False
+        with open(path, encoding="utf-8") as src, open(tmp_path, "w", encoding="utf-8") as dst:
+            for line in src:
+                if line.strip() == '':
+                    continue
+                data = json.loads(line)
+                if data["id"] == target_id:
+                    found = True
+                    continue
+                else:
+                    dst.write(line)
+        if found:
+            tmp_path.replace(path)
+        else:
+            tmp_path.unlink()
+        return found
     
 class CategoryStore:
     def __init__(self, path: str) -> None:

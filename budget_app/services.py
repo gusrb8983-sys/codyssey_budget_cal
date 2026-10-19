@@ -141,4 +141,12 @@ def is_category_used(repo: TransactionRepository, name: str) -> bool:
         if tx.category == name:
             return True
     return False
-    
+
+def delete_transaction(repo: TransactionRepository, raw_id: str) -> str:
+    tx_id = raw_id.strip()
+    if tx_id == '':
+        raise ValueError("아이디를 입력해주십시오.")
+    elif not repo.delete(tx_id):
+        raise ValueError("존재하지 않는 id입니다.")
+    return tx_id
+  
