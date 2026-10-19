@@ -149,4 +149,27 @@ def delete_transaction(repo: TransactionRepository, raw_id: str) -> str:
     elif not repo.delete(tx_id):
         raise ValueError("존재하지 않는 id입니다.")
     return tx_id
-  
+
+def update_transaction(repo, category_store, raw_id, date=None, tx_type=None,
+                       category=None, amount=None, memo=None, tags=None) -> str:
+    tx_id = raw_id.strip()
+    if not tx_id:
+        raise ValueError("아이디를 입력해주십시오")
+    changes = {}
+    if date is not None:
+        changes["date"] = parse_date(date)
+    if tx_type is not None:
+        changes["type"] = parse_type(tx_type)    
+    if category is not None:
+        changes["category"] = parse_category(category_store, category)
+    if amount is not None:
+        changes["amount"] = parse_amount(amount)
+    if memo is not None:
+        changes["memo"] = parse_memo(memo)
+    if tags is not None:
+        changes["tags"] = parse_tags(tags)
+    if not changes:
+        raise ValueError("바꿀 항목을 하나 이상 지정하세요 (예: --amount 5000)")
+    if not repo.update(tx_id, changes):
+        raise ValueError("존재하지 않는 id입니다.")
+    return tx_id
