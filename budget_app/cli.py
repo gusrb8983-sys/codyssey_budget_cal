@@ -5,7 +5,8 @@ from .storage import CategoryStore, TransactionRepository, BudgetStore
 from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
-    recent_transactions, top_categories, search_transactions
+    recent_transactions, top_categories, search_transactions,
+    remove_category, 
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -25,6 +26,7 @@ def main() -> None:
     category_sub = category.add_subparsers(dest="action", required=True)
     category_sub.add_parser("list", help="카테고리 목록 보기")
     category_sub.add_parser("add", help="카테고리 추가")
+    category_sub.add_parser("remove", help="카테고리 삭제")
     list_parser = sub.add_parser("list", help="거래 목록")
     list_parser.add_argument("--limit", type=int, default=10, help="보여줄 개수")
     budget = sub.add_parser("budget", help="예산 목록")
@@ -59,6 +61,15 @@ def main() -> None:
                 raw_name = input("카테고리명: ")
                 name = add_category(store, raw_name)
                 print(f"[저장 완료] category = {name}")
+            except ValueError as e:
+                print(f"[오류] {e}")
+        elif args.action == "remove":
+            repo = TransactionRepository("data/transactions.jsonl")
+            store = CategoryStore("data/categories.jsonl")
+            try:
+                raw_name = input("카테고리명: ")
+                name = remove_category(store, repo, raw_name)
+                print(f"[삭제 완료] category = {name}")
             except ValueError as e:
                 print(f"[오류] {e}")
 
@@ -135,3 +146,4 @@ def main() -> None:
         else:
             for tx in reversed(results):
                 print(f"{tx.id} | {tx.date} | {tx.type} | {tx.category} | {tx.amount} | {tx.memo or ''}")
+

@@ -58,6 +58,21 @@ class CategoryStore:
             line = json.dumps(data, ensure_ascii=False)
             f.write(line + "\n")
 
+    def remove(self, name: str) -> None:
+        all_names = self.list_all()
+        new_names = []
+        for n in all_names:
+            if n != name:
+                new_names.append(n)
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        with open(self.path, "w", encoding="utf-8") as f:
+            for kept in new_names:
+                data = {"name": kept}
+                line = json.dumps(data, ensure_ascii=False)
+                f.write(line + "\n")
+
+
+
 class BudgetStore:
     def __init__(self, path: str) -> None:
         self.path = path

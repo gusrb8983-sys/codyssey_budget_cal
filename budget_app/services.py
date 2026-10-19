@@ -16,6 +16,19 @@ def add_category(store: CategoryStore, name: str) -> str:
         store.add(name)
     return name
 
+def remove_category(category_store: CategoryStore, repo: TransactionRepository, name: str) -> str:
+    name = name.strip()
+    names = category_store.list_all()
+    if name == "":
+        raise ValueError("이름이 비어있습니다. 다시 입력해주세요.")
+    elif name not in names:          # 검사 2: 목록에 없으면
+        raise ValueError(f"등록되지 않은 카테고리입니다: {name}")
+    elif is_category_used(repo, name):          # 검사 3: 거래에서 사용 중이면 (is_category_used 사용)
+        raise ValueError(f"사용 중인 카테고리라 삭제할 수 없습니다: {name} (해당 거래를 먼저 수정하거나 삭제하세요)")
+    else:
+         category_store.remove(name)           # 저장: 관리인에게 지우라고 시키기
+    return name
+
 def parse_type(raw: str) -> str:
     value = raw.strip() # 1. 앞뒤 공백 정리
     if not (value == "income" or value == "expense"): 
@@ -122,3 +135,10 @@ def search_transactions(repo, category=None, tx_type=None, date_from=None, date_
         if tag is not None and (tx.tags is None or tag not in tx.tags):
             continue
         yield tx
+
+def is_category_used(repo: TransactionRepository, name: str) -> bool:
+    for tx in repo.iter_all():
+        if tx.category == name:
+            return True
+    return False
+    
