@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from .storage import CategoryStore
 from datetime import datetime
 from collections import deque
@@ -105,3 +106,19 @@ def top_categories(category_totals: dict[str, int], top: int) -> list[tuple[str,
         raise ValueError("--top은 1 이상의 정수여야 합니다 (예: --top 3)")
     else:
         return sorted(category_totals.items(), key=lambda pair: pair[1], reverse=True)[:top]
+
+def search_transactions(repo, category=None, tx_type=None, date_from=None, date_to=None, keyword=None, tag=None):
+    for tx in repo.iter_all():
+        if category is not None and tx.category != category:
+            continue
+        if tx_type is not None and tx.type != tx_type:
+            continue
+        if date_from is not None and tx.date < date_from:
+            continue
+        if date_to is not None and tx.date > date_to:
+            continue
+        if keyword is not None and (tx.memo is None or keyword not in tx.memo):
+            continue
+        if tag is not None and (tx.tags is None or tag not in tx.tags):
+            continue
+        yield tx
