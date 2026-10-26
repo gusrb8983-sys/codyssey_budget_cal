@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 from .models import Transaction
 from .storage import CategoryStore, TransactionRepository, BudgetStore
@@ -9,6 +10,132 @@ from .services import (
     remove_category, delete_transaction, update_transaction,
     export_transactions, import_transactions,
 )
+
+def handle_errors(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as e:
+            print(f"[오류] {e}")
+            sys.exit(1)
+    return wrapper
+
+@handle_errors
+def run_delete(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    tx_id = delete_transaction(repo, args.tx_id)
+    print(f"[삭제 완료] id={tx_id}")
+
+@handle_errors
+def run_update(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    category_store = CategoryStore("data/categories.jsonl")
+    tx_id = update_transaction(repo, category_store, args.tx_id,
+                               date=args.date, tx_type=args.tx_type,
+                               category=args.category, amount=args.amount,
+                               memo=args.memo, tags=args.tags)
+    print(f"[수정 완료] id={tx_id}")
+
+@handle_errors
+def run_import(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    category_store = CategoryStore("data/categories.jsonl")
+    imported, skipped = import_transactions(repo, category_store, args.in_path)
+    print(f"[완료] imported={imported}, skipped={skipped}")
+
+@handle_errors
+def run_export(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    count = export_transactions(repo, args.out, month=args.month, date_from=args.date_from, date_to=args.date_to)
+    print(f"[완료] {args.out} ({count} records)")
+
+@handle_errors
+def run_list(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    recent = recent_transactions(repo, args.limit)
+    for recent_tx in recent:
+        print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
+
+@handle_errors
+def run_budget_set(args):
+    store = BudgetStore("data/budgets.jsonl")
+    month = parse_month(args.month)
+    amount = parse_amount(args.amount)
+    store.set(month, amount)
+    print(f"[저장 완료] {month} 예산 {amount}원")
+
+@handle_errors
+def run_summary(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    budget_store = BudgetStore("data/budgets.jsonl")
+    month = parse_month(args.month)
+    total_income, total_expense, category_totals = monthly_totals(repo, month)
+    top_items = top_categories(category_totals, args.top)
+    budget = budget_store.get(month)
+    if total_income == 0 and total_expense == 0:
+        print("데이터 없음")
+    else:
+        print(f"총 수입: {total_income}원")
+        print(f"총 지출: {total_expense}원")
+        print(f"잔액: {total_income - total_expense}원")
+        if budget is None:
+            print("예산: 미설정")
+        else:
+            usage = total_expense / budget * 100
+            print(f"예산: {budget}원 (사용률 {usage:.1f}%)")
+            if total_expense > budget:
+                print(f"예산보다 많은 금액을 소비하셨습니다. 초과 금액: {total_expense - budget}")
+            print(f"지출 TOP {args.top}")
+            for rank, (name, amount) in enumerate(top_items, start = 1):
+                print(f"{rank}) {name} {amount}원")
+
+@handle_errors
+def run_category_add(args):
+    store = CategoryStore("data/categories.jsonl")
+    raw_name = input("카테고리명: ")
+    name = add_category(store, raw_name)
+    print(f"[저장 완료] category = {name}")
+
+@handle_errors
+def run_category_remove(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    store = CategoryStore("data/categories.jsonl")
+    raw_name = input("카테고리명: ")
+    name = remove_category(store, repo, raw_name)
+    print(f"[삭제 완료] category = {name}")
+
+@handle_errors
+def run_add(args):
+    category_store = CategoryStore("data/categories.jsonl")
+    repo = TransactionRepository("data/transactions.jsonl")
+    tx_date = ask("날짜(YYYY-MM-DD): ", parse_date)
+    tx_type = ask("타입(income/expense): ", parse_type)
+    tx_category = ask("카테고리: ", lambda raw: parse_category(category_store, raw))
+    tx_amount = ask("금액(양수): ", parse_amount)
+    tx_memo = ask("메모(선택): ", parse_memo)
+    tx_tags = ask("태그(쉼표로 구분, 없으면 엔터): ", parse_tags)
+    transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date, amount=tx_amount, category=tx_category, memo=tx_memo, tags=tx_tags)
+    repo.append(transaction)
+    print(f"[저장 완료] id={transaction.id}")
+
+@handle_errors
+def run_search(args):
+    repo = TransactionRepository("data/transactions.jsonl")
+    results = list(search_transactions(repo, category=args.category,
+    tx_type=args.tx_type, date_from=args.date_from,
+    date_to=args.date_to, keyword=args.keyword, tag=args.tag,
+    ))
+    if not results:
+        print("검색 결과 없음")
+    else:
+        for tx in reversed(results):
+            print(f"{tx.id} | {tx.date} | {tx.type} | {tx.category} | {tx.amount} | {tx.memo or ''}")
+
+@handle_errors
+def run_category_list(args):
+    store = CategoryStore("data/categories.jsonl")
+    for name in store.list_all():
+        print(f"- {name}")
 
 def ask(prompt: str, parse) -> ...:
     while True:
@@ -69,135 +196,36 @@ def main() -> None:
     # 3부: 업무 처리
     if args.command == "category":
         if args.action == "list":
-            store = CategoryStore("data/categories.jsonl")
-            names = store.list_all()
-            for name in names:
-                print(f"- {name}")
+            run_category_list(args)
         elif args.action == "add":
-            store = CategoryStore("data/categories.jsonl")
-            try:
-                raw_name = input("카테고리명: ")
-                name = add_category(store, raw_name)
-                print(f"[저장 완료] category = {name}")
-            except ValueError as e:
-                print(f"[오류] {e}")
+            run_category_add(args)
         elif args.action == "remove":
-            repo = TransactionRepository("data/transactions.jsonl")
-            store = CategoryStore("data/categories.jsonl")
-            try:
-                raw_name = input("카테고리명: ")
-                name = remove_category(store, repo, raw_name)
-                print(f"[삭제 완료] category = {name}")
-            except ValueError as e:
-                print(f"[오류] {e}")
+            run_category_remove(args)
 
     elif args.command == "add":
-        category_store = CategoryStore("data/categories.jsonl")
-        repo = TransactionRepository("data/transactions.jsonl")
-        tx_date = ask("날짜(YYYY-MM-DD): ", parse_date)
-        tx_type = ask("타입(income/expense): ", parse_type)
-        tx_category = ask("카테고리: ", lambda raw: parse_category(category_store, raw))
-        tx_amount = ask("금액(양수): ", parse_amount)
-        tx_memo = ask("메모(선택): ", parse_memo)
-        tx_tags = ask("태그(쉼표로 구분, 없으면 엔터): ", parse_tags)
-        transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date, amount=tx_amount, category=tx_category, memo=tx_memo, tags=tx_tags)
-        repo.append(transaction)
-        print(f"[저장 완료] id={transaction.id}")
+        run_add(args)
 
     elif args.command == "list":
-        repo = TransactionRepository("data/transactions.jsonl")
-        try:
-            recent = recent_transactions(repo, args.limit)
-        except ValueError as e:
-            print(f"[오류] {e}")
-        else:
-            for recent_tx in recent:
-                print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
+        run_list(args)
 
     elif args.command == "budget":
         if args.action == "set":
-            store = BudgetStore("data/budgets.jsonl")
-            try:
-                month = parse_month(args.month)
-                amount = parse_amount(args.amount)
-                store.set(month, amount)
-                print(f"[저장 완료] {month} 예산 {amount}원")
-            except ValueError as e:
-                print(f"[오류] {e}")
+            run_budget_set(args)
 
     elif args.command == "summary":
-        repo = TransactionRepository("data/transactions.jsonl")
-        budget_store = BudgetStore("data/budgets.jsonl")
-        try:
-            month = parse_month(args.month)
-            total_income, total_expense, category_totals = monthly_totals(repo, month)
-            top_items = top_categories(category_totals, args.top)
-            budget = budget_store.get(month)
-            if total_income == 0 and total_expense == 0:
-                print("데이터 없음")
-            else:
-                print(f"총 수입: {total_income}원")
-                print(f"총 지출: {total_expense}원")
-                print(f"잔액: {total_income - total_expense}원")
-                if budget is None:
-                    print("예산: 미설정")
-                else:
-                    usage = total_expense / budget * 100
-                    print(f"예산: {budget}원 (사용률 {usage:.1f}%)")
-                    if total_expense > budget:
-                        print(f"예산보다 많은 금액을 소비하셨습니다. 초과 금액: {total_expense - budget}")
-                print(f"지출 TOP {args.top}")
-                for rank, (name, amount) in enumerate(top_items, start = 1):
-                    print(f"{rank}) {name} {amount}원")
-
-        except ValueError as e:
-            print(f"[오류] {e}")
+        run_summary(args)
 
     elif args.command == "search":
-        repo = TransactionRepository("data/transactions.jsonl")
-        results = list(search_transactions(repo, category=args.category,
-        tx_type=args.tx_type, date_from=args.date_from,
-        date_to=args.date_to, keyword=args.keyword, tag=args.tag,
-        ))
-        if not results:
-            print("검색 결과 없음")
-        else:
-            for tx in reversed(results):
-                print(f"{tx.id} | {tx.date} | {tx.type} | {tx.category} | {tx.amount} | {tx.memo or ''}")
+        run_search(args)
 
     elif args.command == "delete":
-        repo = TransactionRepository("data/transactions.jsonl")
-        try:
-            tx_id = delete_transaction(repo, args.tx_id)
-            print(f"[삭제 완료] id={tx_id}")
-        except ValueError as e:
-            print(f"[오류] {e}")
+        run_delete(args)
 
     elif args.command == "update":
-        repo = TransactionRepository("data/transactions.jsonl")
-        category_store = CategoryStore("data/categories.jsonl")
-        try:
-            tx_id = update_transaction(repo, category_store, args.tx_id,
-                                       date=args.date, tx_type=args.tx_type,
-                                       category=args.category, amount=args.amount,
-                                       memo=args.memo, tags=args.tags)
-            print(f"[수정 완료] id={tx_id}")
-        except ValueError as e:
-            print(f"[오류] {e}")
+        run_update(args)
 
     elif args.command == "export":
-        repo = TransactionRepository("data/transactions.jsonl")
-        try:
-            count = export_transactions(repo, args.out, month=args.month, date_from=args.date_from, date_to=args.date_to)
-            print(f"[완료] {args.out} ({count} records)")
-        except ValueError as e:
-            print(f"[오류] {e}")
+        run_export(args)
 
     elif args.command == "import":
-        repo = TransactionRepository("data/transactions.jsonl")
-        category_store = CategoryStore("data/categories.jsonl")
-        try:
-            imported, skipped = import_transactions(repo, category_store, args.in_path)
-            print(f"[완료] imported={imported}, skipped={skipped}")
-        except ValueError as e:
-            print(f"[오류] {e}")
+        run_import(args)
