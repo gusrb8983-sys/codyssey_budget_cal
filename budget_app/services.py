@@ -1,4 +1,5 @@
 import csv
+from pathlib import Path
 from collections.abc import Iterator
 from .storage import CategoryStore
 from datetime import datetime
@@ -191,3 +192,26 @@ def export_transactions(repo, out_path, month=None, date_from=None, date_to=None
             writer.writerow([tx.date, tx.type, tx.category, tx.amount, tx.memo or "", ",".join(tx.tags) if tx.tags else ""])
             count = count + 1          # 매번
     return count                       # 반복이 끝난 뒤 한 번 (with 바깥)
+
+def import_transactions(repo, category_store, in_path) -> tuple[int, int]:
+    if not Path(in_path).exists():
+        raise ValueError(f"파일을 찾을 수 없습니다: {in_path} (경로를 확인하세요)")
+    imported = 0
+    skipped = 0
+    with open(in_path, encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            try:
+                tx_date = parse_date(row["date"])
+                tx_type = parse_type(row["type"])        # row["type"]을 parse_type에
+                tx_category = parse_category(category_store, row["category"])
+                tx_amount = parse_amount(row["amount"])      # row["amount"]를 parse_amount에
+                tx_memo = parse_memo(row["memo"])        # row["memo"]를 parse_memo에
+                tx_tags = parse_tags(row["tags"])        # row["tags"]를 parse_tags에
+                transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date,
+                                          amount=tx_amount, category=tx_category,
+                                          memo=tx_memo, tags=tx_tags)
+                repo.append(transaction)
+                imported += 1
+            except ValueError:
+                skipped += 1
+    return imported, skipped

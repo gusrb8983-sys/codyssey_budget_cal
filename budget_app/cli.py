@@ -7,7 +7,7 @@ from .services import (
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
     recent_transactions, top_categories, search_transactions,
     remove_category, delete_transaction, update_transaction,
-    export_transactions,
+    export_transactions, import_transactions,
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -60,7 +60,9 @@ def main() -> None:
     export_parser.add_argument("--month", help="내보낼 월 (YYYY-MM)")
     export_parser.add_argument("--from", dest="date_from", help="시작 날짜 (YYYY-MM-DD)")
     export_parser.add_argument("--to", dest="date_to", help="종료 날짜 (YYYY-MM-DD)")
-    
+    import_parser = sub.add_parser("import", help="CSV 가져오기")
+    import_parser.add_argument("--from", dest="in_path", required=True, help="가져올 CSV 파일 경로")
+
     # 2부: 손님 받기
     args = parser.parse_args()
 
@@ -188,5 +190,14 @@ def main() -> None:
         try:
             count = export_transactions(repo, args.out, month=args.month, date_from=args.date_from, date_to=args.date_to)
             print(f"[완료] {args.out} ({count} records)")
+        except ValueError as e:
+            print(f"[오류] {e}")
+
+    elif args.command == "import":
+        repo = TransactionRepository("data/transactions.jsonl")
+        category_store = CategoryStore("data/categories.jsonl")
+        try:
+            imported, skipped = import_transactions(repo, category_store, args.in_path)
+            print(f"[완료] imported={imported}, skipped={skipped}")
         except ValueError as e:
             print(f"[오류] {e}")
