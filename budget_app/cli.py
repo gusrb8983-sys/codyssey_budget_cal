@@ -6,7 +6,8 @@ from .services import (
     add_category, parse_amount, monthly_totals, parse_category,
     parse_date, parse_memo, parse_month, parse_tags, parse_type,
     recent_transactions, top_categories, search_transactions,
-    remove_category, delete_transaction, update_transaction
+    remove_category, delete_transaction, update_transaction,
+    export_transactions,
 )
 
 def ask(prompt: str, parse) -> ...:
@@ -54,7 +55,11 @@ def main() -> None:
     update_parser.add_argument("--amount", help="금액 (양수 정수)")
     update_parser.add_argument("--memo", help="메모")
     update_parser.add_argument("--tags", help="태그 (쉼표로 구분)")
-
+    export_parser = sub.add_parser("export", help="거래 CSV 내보내기")
+    export_parser.add_argument("--out", required=True, help="저장할 CSV 파일 경로")
+    export_parser.add_argument("--month", help="내보낼 월 (YYYY-MM)")
+    export_parser.add_argument("--from", dest="date_from", help="시작 날짜 (YYYY-MM-DD)")
+    export_parser.add_argument("--to", dest="date_to", help="종료 날짜 (YYYY-MM-DD)")
     
     # 2부: 손님 받기
     args = parser.parse_args()
@@ -175,5 +180,13 @@ def main() -> None:
                                        category=args.category, amount=args.amount,
                                        memo=args.memo, tags=args.tags)
             print(f"[수정 완료] id={tx_id}")
+        except ValueError as e:
+            print(f"[오류] {e}")
+
+    elif args.command == "export":
+        repo = TransactionRepository("data/transactions.jsonl")
+        try:
+            count = export_transactions(repo, args.out, month=args.month, date_from=args.date_from, date_to=args.date_to)
+            print(f"[완료] {args.out} ({count} records)")
         except ValueError as e:
             print(f"[오류] {e}")
