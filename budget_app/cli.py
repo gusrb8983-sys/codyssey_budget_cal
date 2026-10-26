@@ -11,6 +11,9 @@ from .services import (
     export_transactions, import_transactions,
 )
 
+def data_path(args, filename: str) -> str:
+    return f"{args.data_dir}/{filename}"
+
 def handle_errors(func):
     def wrapper(*args, **kwargs):
         try:
@@ -22,14 +25,14 @@ def handle_errors(func):
 
 @handle_errors
 def run_delete(args):
-    repo = TransactionRepository("data/transactions.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
     tx_id = delete_transaction(repo, args.tx_id)
     print(f"[삭제 완료] id={tx_id}")
 
 @handle_errors
 def run_update(args):
-    repo = TransactionRepository("data/transactions.jsonl")
-    category_store = CategoryStore("data/categories.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
+    category_store = CategoryStore(data_path(args, "categories.jsonl"))
     tx_id = update_transaction(repo, category_store, args.tx_id,
                                date=args.date, tx_type=args.tx_type,
                                category=args.category, amount=args.amount,
@@ -38,27 +41,27 @@ def run_update(args):
 
 @handle_errors
 def run_import(args):
-    repo = TransactionRepository("data/transactions.jsonl")
-    category_store = CategoryStore("data/categories.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
+    category_store = CategoryStore(data_path(args, "categories.jsonl"))
     imported, skipped = import_transactions(repo, category_store, args.in_path)
     print(f"[완료] imported={imported}, skipped={skipped}")
 
 @handle_errors
 def run_export(args):
-    repo = TransactionRepository("data/transactions.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
     count = export_transactions(repo, args.out, month=args.month, date_from=args.date_from, date_to=args.date_to)
     print(f"[완료] {args.out} ({count} records)")
 
 @handle_errors
 def run_list(args):
-    repo = TransactionRepository("data/transactions.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
     recent = recent_transactions(repo, args.limit)
     for recent_tx in recent:
         print(f"{recent_tx.id} | {recent_tx.date} | {recent_tx.type} | {recent_tx.category} | {recent_tx.amount} | {recent_tx.memo or ''}")
 
 @handle_errors
 def run_budget_set(args):
-    store = BudgetStore("data/budgets.jsonl")
+    store = BudgetStore(data_path(args, "budgets.jsonl"))
     month = parse_month(args.month)
     amount = parse_amount(args.amount)
     store.set(month, amount)
@@ -66,8 +69,8 @@ def run_budget_set(args):
 
 @handle_errors
 def run_summary(args):
-    repo = TransactionRepository("data/transactions.jsonl")
-    budget_store = BudgetStore("data/budgets.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
+    budget_store = BudgetStore(data_path(args, "budgets.jsonl"))
     month = parse_month(args.month)
     total_income, total_expense, category_totals = monthly_totals(repo, month)
     top_items = top_categories(category_totals, args.top)
@@ -91,23 +94,23 @@ def run_summary(args):
 
 @handle_errors
 def run_category_add(args):
-    store = CategoryStore("data/categories.jsonl")
+    store = CategoryStore(data_path(args, "categories.jsonl"))
     raw_name = input("카테고리명: ")
     name = add_category(store, raw_name)
     print(f"[저장 완료] category = {name}")
 
 @handle_errors
 def run_category_remove(args):
-    repo = TransactionRepository("data/transactions.jsonl")
-    store = CategoryStore("data/categories.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
+    store = CategoryStore(data_path(args, "categories.jsonl"))
     raw_name = input("카테고리명: ")
     name = remove_category(store, repo, raw_name)
     print(f"[삭제 완료] category = {name}")
 
 @handle_errors
 def run_add(args):
-    category_store = CategoryStore("data/categories.jsonl")
-    repo = TransactionRepository("data/transactions.jsonl")
+    category_store = CategoryStore(data_path(args, "categories.jsonl"))
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
     tx_date = ask("날짜(YYYY-MM-DD): ", parse_date)
     tx_type = ask("타입(income/expense): ", parse_type)
     tx_category = ask("카테고리: ", lambda raw: parse_category(category_store, raw))
@@ -120,7 +123,7 @@ def run_add(args):
 
 @handle_errors
 def run_search(args):
-    repo = TransactionRepository("data/transactions.jsonl")
+    repo = TransactionRepository(data_path(args, "transactions.jsonl"))
     date_from = parse_date(args.date_from) if args.date_from else None
     date_to = parse_date(args.date_to) if args.date_to else None
     results = list(search_transactions(repo, category=args.category,
@@ -135,7 +138,7 @@ def run_search(args):
 
 @handle_errors
 def run_category_list(args):
-    store = CategoryStore("data/categories.jsonl")
+    store = CategoryStore(data_path(args, "categories.jsonl"))
     for name in store.list_all():
         print(f"- {name}")
 
@@ -150,6 +153,7 @@ def ask(prompt: str, parse) -> ...:
 def main() -> None:
     # 1부: 은행 세우기
     parser = argparse.ArgumentParser(prog="budget_app", description="용돈 기입장")
+    parser.add_argument("--data-dir", default="data", help="데이터 저장 폴더 (기본값: data)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("add", help="거래 추가")
     category = sub.add_parser("category", help="카테고리 관리")
