@@ -182,7 +182,12 @@ def export_transactions(repo, out_path, month=None, date_from=None, date_to=None
     if month:
         tx_month = parse_month(month)
         date_from = f"{tx_month}-01"
-        date_to = f"{tx_month}-99" 
+        date_to = f"{tx_month}-99"
+    else:
+        if date_from is not None:
+            date_from = parse_date(date_from)
+        if date_to is not None:
+            date_to = parse_date(date_to)
     rows = search_transactions(repo, date_from=date_from, date_to=date_to)
     with open(out_path, "w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)

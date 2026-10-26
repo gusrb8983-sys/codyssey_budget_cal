@@ -121,9 +121,11 @@ def run_add(args):
 @handle_errors
 def run_search(args):
     repo = TransactionRepository("data/transactions.jsonl")
+    date_from = parse_date(args.date_from) if args.date_from else None
+    date_to = parse_date(args.date_to) if args.date_to else None
     results = list(search_transactions(repo, category=args.category,
-    tx_type=args.tx_type, date_from=args.date_from,
-    date_to=args.date_to, keyword=args.keyword, tag=args.tag,
+    tx_type=args.tx_type, date_from=date_from,
+    date_to=date_to, keyword=args.keyword, tag=args.tag,
     ))
     if not results:
         print("검색 결과 없음")
