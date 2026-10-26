@@ -88,9 +88,9 @@ def run_summary(args):
             print(f"예산: {budget}원 (사용률 {usage:.1f}%)")
             if total_expense > budget:
                 print(f"예산보다 많은 금액을 소비하셨습니다. 초과 금액: {total_expense - budget}")
-            print(f"지출 TOP {args.top}")
-            for rank, (name, amount) in enumerate(top_items, start = 1):
-                print(f"{rank}) {name} {amount}원")
+        print(f"지출 TOP {args.top}")
+        for rank, (name, amount) in enumerate(top_items, start = 1):
+            print(f"{rank}) {name} {amount}원")
 
 @handle_errors
 def run_category_add(args):
