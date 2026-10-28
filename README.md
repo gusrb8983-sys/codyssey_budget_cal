@@ -3,19 +3,50 @@
 터미널에서 쓰는 콘솔 가계부입니다. 수입/지출을 JSONL 파일에 저장하고,
 검색, 월별 요약, 예산 초과 경고, CSV 가져오기/내보내기를 지원합니다.
 
-## 실행 방법
+## 빠른 시작
 
-- Python 3.10 이상, 표준 라이브러리만 사용합니다 (pip 설치 없음).
-- 명령은 저장소 최상위 폴더(`budget_app/`이 보이는 곳)에서 실행합니다.
-- 3.10 미만으로 실행하면 Traceback 대신 버전 안내 문구가 나옵니다. `python --version`으로 확인하세요.
+저장소를 받은 뒤 **최상위 폴더**(`budget_app/` 폴더가 보이는 곳)에서 실행하세요.
+
+```bash
+python3 --version
+python3 -m budget_app --help
+python3 -m budget_app --data-dir sample_data summary --month 2024-01
+```
+
+차례로 버전 확인(3.10 이상), 전체 명령 보기, 샘플 데이터로 요약 확인입니다.
+
+- 외부 라이브러리가 없어서 설치할 것이 없습니다(표준 라이브러리만 사용).
+- `python`이 아니라 **`python3`**로 실행하세요. Mac 등에서는 `python` 명령이 없는 경우가 많습니다.
+- 실행 파일을 직접 여는 방식(`python3 budget_app/cli.py`, `python3 __main__.py`)은 동작하지 않습니다. 항상 `python3 -m budget_app <명령>` 형태입니다.
+- `--data-dir`은 명령보다 **앞에** 씁니다(`python3 -m budget_app --data-dir sample_data list`).
+
+### Python 버전이 3.10 미만일 때만: 가상환경
+
+`python3 --version`이 3.10 미만이면, 3.10 이상 파이썬으로 가상환경을 만들어 그 안에서 실행합니다.
+3.10 미만으로 실행하면 Traceback 대신 버전 안내 문구가 나옵니다.
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-cp -r sample_data data                                # 연습용 샘플 데이터 (선택)
-python -m budget_app --help
-python -m budget_app --data-dir sample_data list      # 저장 폴더 지정 (명령 앞에 써야 함)
+python3 -m budget_app --help
 ```
+
+`python3.12` 자리에는 설치된 3.10 이상 버전 이름(`python3.11` 등)을 씁니다.
+`source .venv/bin/activate`는 새 터미널을 열 때마다 다시 실행합니다.
+
+### 처음 쓸 때 (빈 상태에서 시작)
+
+`--data-dir`을 생략하면 `./data` 폴더를 사용합니다. 처음에는 비어 있으므로 카테고리부터 등록합니다.
+
+```bash
+python3 -m budget_app category add
+python3 -m budget_app add
+python3 -m budget_app list
+```
+
+`category add`에서 카테고리 이름(예: `food`)을, `add`에서 날짜, 타입, 카테고리, 금액, 메모, 태그를 차례로 입력합니다.
+
+샘플 데이터를 복사해서 연습할 수도 있습니다: `cp -r sample_data data`
 
 `data/` 폴더는 개인 기록이 들어가므로 `.gitignore`에 등록되어 있습니다.
 `sample_data/`는 GitHub에 올라가는 가짜 연습 데이터입니다.
@@ -37,39 +68,98 @@ JSONL(한 줄 = 한 레코드)로 저장합니다. 파일이 없으면 읽기 �
 JSONL을 고른 이유: `amount`가 숫자로, `tags`가 리스트로 그대로 저장되고 읽혀서
 CSV처럼 쉼표/따옴표 문제나 타입 변환을 신경 쓰지 않아도 되기 때문입니다.
 
-## 주요 명령
+## 주요 명령 (검증 순서)
+
+아래 블록을 **위에서부터 순서대로** 복사해 붙여 넣으면 모든 기능을 확인할 수 있습니다.
+샘플 데이터를 `data/`로 복사해서 쓰므로 `--data-dir`을 붙이지 않습니다.
+(`data/` 폴더가 이미 있으면 먼저 지우거나 다른 곳으로 옮기세요.)
+
+### 1. 준비
 
 ```bash
-python -m budget_app add                                   # 대화형 입력 (틀리면 다시 물음)
-python -m budget_app list --limit 5                        # 최신순
-python -m budget_app search --category food --type expense --from 2024-01-01 --to 2024-01-31 --q 점심 --tag meal
-python -m budget_app summary --month 2024-01 --top 3       # 합계, 잔액, 예산 사용률, 지출 TOP N
-python -m budget_app budget set --month 2024-01 --amount 500000
-python -m budget_app category list
-python -m budget_app category add                          # 대화형 입력
-python -m budget_app category remove                       # 사용 중인 카테고리는 삭제 거절
-python -m budget_app update --id TX-000001 --amount 9000
-python -m budget_app delete --id TX-000001
-python -m budget_app export --out export.csv --month 2024-01
-python -m budget_app import --from export.csv
+cp -r sample_data data
 ```
 
-모든 명령은 `--help`로 사용법을 볼 수 있습니다.
-오류가 나면 스택트레이스 대신 `[오류] 원인 (힌트)` 한 줄을 출력하고 종료 코드 1로 끝납니다.
-정상 종료는 0입니다.
+### 2. 조회 (list, search, summary, category list)
 
-### 실행 예시
+```bash
+python3 -m budget_app list --limit 5
+python3 -m budget_app search --category food --type expense --from 2024-01-01 --to 2024-01-31 --q 점심 --tag meal
+python3 -m budget_app summary --month 2024-01 --top 3
+python3 -m budget_app category list
+```
 
+- `list`: 최신순 거래 4건
+- `search`: 조건에 맞는 `TX-000001` 한 건
+- `summary`: 총 수입 100000원, 총 지출 11000원, 잔액 89000원, 예산 사용률 2.2%, 지출 TOP
+- `category list`: food, transport, salary
+
+### 3. 예산 초과 경고 (budget set)
+
+```bash
+python3 -m budget_app budget set --month 2024-02 --amount 10000
+python3 -m budget_app summary --month 2024-02
 ```
-$ python -m budget_app summary --month 2024-01 --top 3
-총 수입: 100000원
-총 지출: 11000원
-잔액: 89000원
-예산: 500000원 (사용률 2.2%)
-지출 TOP 3
-1) food 8000원
-2) transport 3000원
+
+2월 지출 12000원이 예산 10000원보다 많아서 사용률 120.0%와 초과 경고가 나옵니다.
+
+### 4. 수정과 삭제 (update, delete)
+
+```bash
+python3 -m budget_app update --id TX-000001 --amount 9000 --memo 수정
+python3 -m budget_app delete --id TX-000002
+python3 -m budget_app list
 ```
+
+`TX-000001`의 금액과 메모가 바뀌고 `TX-000002`가 목록에서 사라집니다.
+
+### 5. 내보내기와 가져오기 (export, import)
+
+```bash
+python3 -m budget_app export --out data/export.csv --month 2024-01
+python3 -m budget_app import --from data/export.csv
+python3 -m budget_app list
+```
+
+`export`는 1월 거래 2건을 CSV로 저장하고, `import`는 그 2건을 새 id로 다시 추가합니다.
+CSV 파일은 `.gitignore`에 등록된 `data/` 안에 만들어집니다.
+
+### 6. 대화형 입력 (category add, add, category remove)
+
+```bash
+python3 -m budget_app category add
+```
+
+`shopping`을 입력합니다.
+
+```bash
+python3 -m budget_app add
+```
+
+차례로 `2024-03-01`, `expense`, `shopping`, `25000`, `옷`을 입력하고 태그는 엔터로 비워 둡니다.
+틀린 값(예: 금액 `-5`, 등록 안 된 카테고리)을 넣으면 오류를 보여 주고 같은 질문을 다시 합니다.
+
+```bash
+python3 -m budget_app category remove
+```
+
+`food`를 입력하면 사용 중이라 거절되고, 다시 실행해서 `transport`를 입력하면(4번에서 transport 거래를 삭제함) 삭제됩니다.
+
+### 7. 오류 메시지와 종료 코드
+
+```bash
+python3 -m budget_app summary --month 2024-13
+echo $?
+python3 -m budget_app delete --id TX-999999
+echo $?
+python3 -m budget_app import --from data/none.csv
+echo $?
+```
+
+세 명령 모두 Traceback 없이 `[오류] 원인 (힌트)` 한 줄을 출력하고, `echo $?`는 `1`입니다.
+정상 실행 뒤의 `echo $?`는 `0`입니다. (Windows PowerShell에서는 `echo $LASTEXITCODE`)
+
+모든 명령은 `--help`로 사용법을 볼 수 있습니다(예: `python3 -m budget_app search --help`).
 
 ## import/export CSV 스키마
 
@@ -102,7 +192,7 @@ UTF-8, 헤더 포함.
 | `storage.py` | 파일 읽기/쓰기만 담당 (`TransactionRepository`, `CategoryStore`, `BudgetStore`, `CsvFile`) |
 | `services.py` | 검증과 계산, 그리고 cli의 유일한 창구인 `BudgetService` |
 | `cli.py` | 명령 해석, 입력과 출력, `@handle_errors` 데코레이터 |
-| `__main__.py` | `python -m budget_app`의 출입구 (Python 버전 확인 후 `cli.main()` 호출) |
+| `__main__.py` | `python3 -m budget_app`의 출입구 (Python 버전 확인 후 `cli.main()` 호출) |
 
 의존 방향은 한쪽으로만 흐릅니다. 위 계층은 바로 아래 계층만 알고, 아래 계층은 위를 모릅니다.
 
