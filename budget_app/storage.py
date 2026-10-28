@@ -1,5 +1,6 @@
+import csv
 import json
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import asdict
 from pathlib import Path
 
@@ -144,3 +145,34 @@ class BudgetStore:
     def get(self, month: str) -> int | None:
         budgets = self.load_all()
         return budgets.get(month)
+
+
+class CsvFile:
+    """CSV 파일 읽기/쓰기만 담당한다. 어떤 열이 필요한지 같은 규칙은 services가 정한다."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+    def exists(self) -> bool:
+        return Path(self.path).exists()
+
+    def read_header(self) -> list[str]:
+        with open(self.path, encoding="utf-8", newline="") as f:
+            reader = csv.reader(f)
+            return next(reader, [])
+
+    def iter_rows(self) -> Iterator[dict[str, str]]:
+        with open(self.path, encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                yield row
+
+    def write(self, header: list[str], rows: Iterable[list]) -> int:
+        Path(self.path).parent.mkdir(parents=True, exist_ok=True)
+        count = 0
+        with open(self.path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            for row in rows:
+                writer.writerow(row)
+                count = count + 1
+        return count

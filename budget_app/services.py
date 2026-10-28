@@ -1,11 +1,14 @@
-import csv
-from pathlib import Path
-from collections.abc import Iterator
-from .storage import CategoryStore
-from datetime import datetime
 from collections import deque
-from .storage import TransactionRepository
-from .models import Transaction
+from collections.abc import Iterator
+from datetime import datetime
+from pathlib import Path
+
+from .models import MonthlySummary, Transaction
+from .storage import BudgetStore, CategoryStore, CsvFile, TransactionRepository
+
+# import/export CSV 스키마 (미션이 고정한 규칙이라 services에 둔다)
+CSV_HEADER = ["date", "type", "category", "amount", "memo", "tags"]
+
 
 def add_category(store: CategoryStore, name: str) -> str:
     name = name.strip()
@@ -33,7 +36,7 @@ def remove_category(category_store: CategoryStore, repo: TransactionRepository, 
 
 def parse_type(raw: str) -> str:
     value = raw.strip() # 1. 앞뒤 공백 정리
-    if not (value == "income" or value == "expense"): 
+    if not (value == "income" or value == "expense"):
         raise ValueError("income 혹은 expense 중에서 선택해주십시오.") # 2. income도 expense도 아니면 → raise ValueError("...")
     return value # 3. 정리된 값 돌려주기
 
@@ -99,7 +102,7 @@ def recent_transactions(repo: TransactionRepository, limit: int) -> list[Transac
         box = deque(maxlen=limit)                  # 1. deque(maxlen=limit) 바구니 준비
         for tx in repo.iter_all():
             box.append(tx)                         # 2. repo.iter_all()를 for로 돌면서 바구니에 append
-        return list(reversed(box))                 # 3. 바구니를 뒤집어서 리스트로 돌려주기 
+        return list(reversed(box))                 # 3. 바구니를 뒤집어서 리스트로 돌려주기
 
 def monthly_totals(repo: TransactionRepository, month: str) -> tuple[int, int, dict[str, int]]:
     total_income = 0
@@ -108,12 +111,12 @@ def monthly_totals(repo: TransactionRepository, month: str) -> tuple[int, int, d
     for tx in repo.iter_all(): # 2. repo.iter_all()를 for로 돌면서
         if not tx.date.startswith(month):
             continue        #    - 이 거래가 해당 월이 아니면 continue
-        else:                   
+        else:
             if tx.type == "income":
                 total_income = total_income + tx.amount
             else:
                 total_expense = total_expense + tx.amount
-                category_totals[tx.category] = category_totals.get(tx.category, 0) + tx.amount   #    - 위의 분기대로 더하기 
+                category_totals[tx.category] = category_totals.get(tx.category, 0) + tx.amount   #    - 위의 분기대로 더하기
     return total_income, total_expense, category_totals # 3. return total_income, total_expense, category_totals
 
 def top_categories(category_totals: dict[str, int], top: int) -> list[tuple[str, int]]:
@@ -122,7 +125,7 @@ def top_categories(category_totals: dict[str, int], top: int) -> list[tuple[str,
     else:
         return sorted(category_totals.items(), key=lambda pair: pair[1], reverse=True)[:top]
 
-def search_transactions(repo, category=None, tx_type=None, date_from=None, date_to=None, keyword=None, tag=None):
+def search_transactions(repo: TransactionRepository, category: str | None = None, tx_type: str | None = None, date_from: str | None = None, date_to: str | None = None, keyword: str | None = None, tag: str | None = None) -> Iterator[Transaction]:
     for tx in repo.iter_all():
         if category is not None and tx.category != category:
             continue
@@ -152,8 +155,8 @@ def delete_transaction(repo: TransactionRepository, raw_id: str) -> str:
         raise ValueError("존재하지 않는 id입니다.")
     return tx_id
 
-def update_transaction(repo, category_store, raw_id, date=None, tx_type=None,
-                       category=None, amount=None, memo=None, tags=None) -> str:
+def update_transaction(repo: TransactionRepository, category_store: CategoryStore, raw_id: str, date: str | None = None, tx_type: str | None = None,
+                       category: str | None = None, amount: str | None = None, memo: str | None = None, tags: str | None = None) -> str:
     tx_id = raw_id.strip()
     if not tx_id:
         raise ValueError("아이디를 입력해주십시오")
@@ -161,7 +164,7 @@ def update_transaction(repo, category_store, raw_id, date=None, tx_type=None,
     if date is not None:
         changes["date"] = parse_date(date)
     if tx_type is not None:
-        changes["type"] = parse_type(tx_type)    
+        changes["type"] = parse_type(tx_type)
     if category is not None:
         changes["category"] = parse_category(category_store, category)
     if amount is not None:
@@ -176,9 +179,15 @@ def update_transaction(repo, category_store, raw_id, date=None, tx_type=None,
         raise ValueError("존재하지 않는 id입니다.")
     return tx_id
 
-def export_transactions(repo, out_path, month=None, date_from=None, date_to=None) -> int:
+def to_csv_rows(transactions: Iterator[Transaction]) -> Iterator[list]:
+    """거래를 한 건씩 CSV 한 줄(리스트)로 바꿔서 흘려보낸다."""
+    for tx in transactions:
+        tags = ",".join(tx.tags) if tx.tags else ""
+        yield [tx.date, tx.type, tx.category, tx.amount, tx.memo or "", tags]
+
+def export_transactions(repo: TransactionRepository, out_path: str, month: str | None = None, date_from: str | None = None, date_to: str | None = None) -> int:
     if month is None and date_from is None and date_to is None:
-        raise ValueError("--month 또는 --from/--to 중 하나는 필요합니다") # 1. month, date_from, date_to가 전부 None이면 → raise ValueError("--month 또는 --from/--to 중 하나는 필요합니다")
+        raise ValueError("--month 또는 --from/--to 중 하나는 필요합니다")
     if month:
         tx_month = parse_month(month)
         date_from = f"{tx_month}-01"
@@ -189,34 +198,122 @@ def export_transactions(repo, out_path, month=None, date_from=None, date_to=None
         if date_to is not None:
             date_to = parse_date(date_to)
     rows = search_transactions(repo, date_from=date_from, date_to=date_to)
-    with open(out_path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["date", "type", "category", "amount", "memo", "tags"])
-        count = 0                      # for보다 위, 딱 한 번 (with 안쪽 맨 앞 또는 with 위)
-        for tx in rows:                # 매번
-            writer.writerow([tx.date, tx.type, tx.category, tx.amount, tx.memo or "", ",".join(tx.tags) if tx.tags else ""])
-            count = count + 1          # 매번
-    return count                       # 반복이 끝난 뒤 한 번 (with 바깥)
+    return CsvFile(out_path).write(CSV_HEADER, to_csv_rows(rows))   # 파일 쓰기는 storage(CsvFile)에 맡긴다
 
-def import_transactions(repo, category_store, in_path) -> tuple[int, int]:
-    if not Path(in_path).exists():
+def import_transactions(repo: TransactionRepository, category_store: CategoryStore, in_path: str) -> tuple[int, list[tuple[int, str]]]:
+    csv_file = CsvFile(in_path)
+    if not csv_file.exists():
         raise ValueError(f"파일을 찾을 수 없습니다: {in_path} (경로를 확인하세요)")
+    header = csv_file.read_header()
+    missing = []
+    for column in CSV_HEADER:
+        if column not in header:
+            missing.append(column)
+    if missing:
+        raise ValueError(f"CSV 헤더에 필요한 열이 없습니다: {', '.join(missing)} (첫 줄은 {','.join(CSV_HEADER)} 이어야 합니다)")
+
+    next_number = int(repo.next_id().split("-")[1])   # 번호는 처음에 한 번만 구하고 1씩 올린다 (줄마다 파일 전체를 읽지 않게)
     imported = 0
-    skipped = 0
-    with open(in_path, encoding="utf-8", newline="") as f:
-        for row in csv.DictReader(f):
-            try:
-                tx_date = parse_date(row["date"])
-                tx_type = parse_type(row["type"])        # row["type"]을 parse_type에
-                tx_category = parse_category(category_store, row["category"])
-                tx_amount = parse_amount(row["amount"])      # row["amount"]를 parse_amount에
-                tx_memo = parse_memo(row["memo"])        # row["memo"]를 parse_memo에
-                tx_tags = parse_tags(row["tags"])        # row["tags"]를 parse_tags에
-                transaction = Transaction(id=repo.next_id(), type=tx_type, date=tx_date,
-                                          amount=tx_amount, category=tx_category,
-                                          memo=tx_memo, tags=tx_tags)
-                repo.append(transaction)
-                imported += 1
-            except ValueError:
-                skipped += 1
-    return imported, skipped
+    errors = []                                       # 건너뛴 줄의 (줄 번호, 사유) 리포트
+    for line_no, row in enumerate(csv_file.iter_rows(), start=2):   # 1번 줄은 헤더
+        try:
+            tx_date = parse_date(row["date"] or "")
+            tx_type = parse_type(row["type"] or "")
+            tx_category = parse_category(category_store, row["category"] or "")
+            tx_amount = parse_amount(row["amount"] or "")
+            tx_memo = parse_memo(row["memo"] or "")
+            tx_tags = parse_tags(row["tags"] or "")
+        except ValueError as e:
+            errors.append((line_no, str(e)))
+            continue
+        transaction = Transaction(id=f"TX-{next_number:06d}", type=tx_type, date=tx_date,
+                                  amount=tx_amount, category=tx_category,
+                                  memo=tx_memo, tags=tx_tags)
+        repo.append(transaction)
+        next_number = next_number + 1
+        imported = imported + 1
+    return imported, errors
+
+
+class BudgetService:
+    """cli가 유일하게 의존하는 창구. 저장소(storage)를 안에서 만들고, cli 대신 연결한다."""
+
+    def __init__(self, data_dir: str) -> None:
+        base = Path(data_dir)
+        self.repo = TransactionRepository(str(base / "transactions.jsonl"))
+        self.categories = CategoryStore(str(base / "categories.jsonl"))
+        self.budgets = BudgetStore(str(base / "budgets.jsonl"))
+
+    # --- 카테고리 ---
+    def list_categories(self) -> list[str]:
+        return self.categories.list_all()
+
+    def add_category(self, raw_name: str) -> str:
+        return add_category(self.categories, raw_name)
+
+    def remove_category(self, raw_name: str) -> str:
+        return remove_category(self.categories, self.repo, raw_name)
+
+    def parse_category(self, raw: str) -> str:
+        return parse_category(self.categories, raw)
+
+    # --- 거래 ---
+    def add_transaction(self, raw_date: str, raw_type: str, raw_category: str,
+                        raw_amount: str, raw_memo: str, raw_tags: str) -> str:
+        # 검증을 전부 먼저 하고, 통과하면 그때 번호를 매겨 저장한다
+        tx_date = parse_date(raw_date)
+        tx_type = parse_type(raw_type)
+        tx_category = self.parse_category(raw_category)
+        tx_amount = parse_amount(raw_amount)
+        tx_memo = parse_memo(raw_memo)
+        tx_tags = parse_tags(raw_tags)
+        transaction = Transaction(id=self.repo.next_id(), type=tx_type, date=tx_date,
+                                  amount=tx_amount, category=tx_category,
+                                  memo=tx_memo, tags=tx_tags)
+        self.repo.append(transaction)
+        return transaction.id
+
+    def recent(self, limit: int) -> list[Transaction]:
+        return recent_transactions(self.repo, limit)
+
+    def search(self, category: str | None = None, tx_type: str | None = None, date_from: str | None = None,
+               date_to: str | None = None, keyword: str | None = None, tag: str | None = None) -> list[Transaction]:
+        if date_from is not None:
+            date_from = parse_date(date_from)
+        if date_to is not None:
+            date_to = parse_date(date_to)
+        results = list(search_transactions(self.repo, category=category, tx_type=tx_type,
+                                           date_from=date_from, date_to=date_to,
+                                           keyword=keyword, tag=tag))
+        results.reverse()          # 파일은 오래된 순이라 뒤집어서 최신순으로
+        return results
+
+    def update(self, raw_id: str, date: str | None = None, tx_type: str | None = None, category: str | None = None,
+               amount: str | None = None, memo: str | None = None, tags: str | None = None) -> str:
+        return update_transaction(self.repo, self.categories, raw_id, date=date, tx_type=tx_type,
+                                  category=category, amount=amount, memo=memo, tags=tags)
+
+    def delete(self, raw_id: str) -> str:
+        return delete_transaction(self.repo, raw_id)
+
+    # --- 예산과 요약 ---
+    def set_budget(self, raw_month: str, raw_amount: str) -> tuple[str, int]:
+        month = parse_month(raw_month)
+        amount = parse_amount(raw_amount)
+        self.budgets.set(month, amount)
+        return month, amount
+
+    def summary(self, raw_month: str, top: int) -> MonthlySummary:
+        month = parse_month(raw_month)
+        total_income, total_expense, category_totals = monthly_totals(self.repo, month)
+        top_items = top_categories(category_totals, top)
+        return MonthlySummary(month=month, total_income=total_income, total_expense=total_expense,
+                              top_items=top_items, budget=self.budgets.get(month))
+
+    # --- CSV ---
+    def export_csv(self, out_path: str, month: str | None = None,
+                   date_from: str | None = None, date_to: str | None = None) -> int:
+        return export_transactions(self.repo, out_path, month=month, date_from=date_from, date_to=date_to)
+
+    def import_csv(self, in_path: str) -> tuple[int, list[tuple[int, str]]]:
+        return import_transactions(self.repo, self.categories, in_path)
